@@ -1,85 +1,83 @@
-
-
 # PeekAboo: Find Me Something
 
-**Your little local guide that finds the *right* places, not just nearby ones.** Tell Peekaboo what you're in the mood for, share your location with one click, and it comes back with a few spots that actually match, each one a tap away in Google Maps.
+**A little local guide that finds places that actually match what you're looking for.**
 
-Search "food near me" in most apps and you get 40 pins to sort through yourself. Peekaboo is built to get it right for you: it reads what you actually asked for, checks every result against your request, throws out anything that doesn't fit, and searches again if the first try misses. Ask for coffee and you get coffee shops, not the smoke shop next door.
+Tell PeekAboo what you're looking for, share your location, and it searches for a few nearby places that fit. Each result comes with a Google Maps link.
 
-```
+Instead of giving you 40 nearby pins to sort through, PeekAboo checks whether the results actually match your request and retries the search when they don't.
+
+```text
 You:       I want vegetarian food that isn't a salad bar
 
-Peekaboo:  ✓ Search for vegetarian restaurants nearby
-           ✓ Check they're actually restaurants
-           ✓ Pick the closest good options
+PeekAboo:  ✓ Search for vegetarian restaurants nearby
+           ✓ Check the results
+           ✓ Pick a few relevant options
 
            Here are 3 spots near you:
-           The Coffee Hag · 2.5 km · vegan and vegetarian kitchen   [Open in Google Maps]
-           ...
+           The Coffee Hag · 2.5 km · vegan and vegetarian kitchen
+           [Open in Google Maps]
 ```
 
 ## Demo
 
-
-
 https://github.com/user-attachments/assets/49fd895b-d983-4650-a06b-ab1e09e0c347
-
-
 
 ## What it can do
 
-- **Understands what you mean.** "Somewhere to grab a quick lunch", "a pharmacy", "a store that sells running shoes": no fixed menu of categories.
-- **Double-checks its own work.** If the search brings back a smoke shop when you asked for coffee, Peekaboo notices, drops it, and searches again.
-- **Shows its plan while it works.** A live checklist ticks off each step, so you're never staring at a spinner.
-- **One tap to get there.** Every place comes with a Google Maps link. Want to walk or bike instead? Just ask.
-- **Honest.** It only recommends places it actually found, and it tells you what it couldn't check, like opening hours.
+* **Understands natural requests.** Ask for "somewhere for a quick lunch" or "a store that sells running shoes."
+* **Checks its results.** If the results don't fit, the agent can rephrase the search and try again.
+* **Shows its progress.** A live checklist shows what the agent is doing.
+* **Gets you there.** Every result includes a Google Maps link, with directions available for walking, cycling, or transit.
+* **Doesn't guess.** It only recommends places returned by the search and is transparent about information it can't verify.
 
 ## How it works
 
-Peekaboo is an LLM agent running in a loop. The model decides which tool to call, looks at what comes back, and keeps going until it has a good answer.
+PeekAboo is an LLM agent running in a bounded tool-calling loop.
 
-```
-"Where can I buy running shoes?" + your location
+```text
+User request + location
         ↓
-  Make a plan ─────────────────────► create_checklist     (streams live to the chat)
+   Create a plan
         ↓
-  Search ──────────────────────────► find_nearby_places   (Foursquare free-text search)
+   Search nearby places
         ↓
-  Do these results fit? Shoe stores? Close by?
-        ↓                 └── no ──► rephrase ("sports store"), search again
-  Tick off steps ──────────────────► mark_complete
+   Check the results
         ↓
-  3 nearby stores with Google Maps links
+   ┌───────┴───────┐
+   fits            doesn't fit
+    ↓                   ↓
+complete          rephrase + retry
+    ↓
+Nearby places + Google Maps links
 ```
 
-The LLM does all the language understanding. There are no keyword rules or category mappings: the model's own wording goes straight into the search, which is why it can handle requests nobody planned for.
+The LLM handles the language understanding, so there are no hard-coded keyword rules or category mappings.
 
 ## Tools
 
-| Tool | Role |
-|---|---|
-| **`find_nearby_places`** | **Core tool.** Free-text place search around the user's coordinates. Returns name, categories, distance and a Maps link per result, trimmed so the model can judge relevance cheaply. |
-| `get_directions_link` | Google Maps directions for walking, cycling or transit. |
-| `create_checklist` / `mark_complete` | The agent's plan, streamed to the UI so users see progress while it works. |
+| Tool                                 | Role                                                     |
+| ------------------------------------ | -------------------------------------------------------- |
+| `find_nearby_places`                 | Searches nearby places using Foursquare free-text search |
+| `get_directions_link`                | Creates Google Maps directions                           |
+| `create_checklist` / `mark_complete` | Shows the agent's progress in the UI                     |
 
 ## Engineering decisions
 
-- **API chosen for the agent, not popularity.** Geoapify and OSM search by category, which forces a hand-written mapping and can't express requests like "running shoes". Foursquare accepts free-text queries, so the LLM can rephrase and retry on its own.
-- **Bounded agent loop.** Capped at 10 tool rounds. If it hits the cap, a final call with `tool_choice="none"` makes the model answer with what it has, instead of failing.
-- **Failures go back to the model.** API errors and timeouts are returned as tool results, so the agent can explain or retry instead of crashing.
-- **Per-request state.** Each request gets its own checklist, so concurrent users never share state.
-- **Streaming progress.** The chat handler is a generator: each tool round `yield`s an updated plan to the UI.
-- **Prompt guardrails.** The agent only recommends places returned by the search, and it says so when it can't verify something (hours, ratings, "vibe").
+* **Free-text search:** Foursquare lets the agent search using natural-language queries instead of relying on fixed categories.
+* **Bounded agent loop:** Limited to 10 tool rounds so the agent can't run indefinitely.
+* **Per-request state:** Each request has its own checklist, preventing concurrent requests from sharing state.
+* **Streaming progress:** Tool results update the checklist in the UI as the agent works.
+* **Guardrails:** The agent only recommends places returned by the search and doesn't invent information it can't verify.
 
 ## Stack
 
-Python · OpenAI API (`gpt-5.4-mini`) · Foursquare Places API · Gradio · Google Maps URLs
+Python · OpenAI API · Foursquare Places API · Gradio · Google Maps
 
-```
+```text
 app.py       agent loop + Gradio UI
-tools.py     tool functions, JSON schemas, tool dispatcher
+tools.py     tool functions + dispatcher
 context.py   system prompt
-styles.py    theme, CSS, browser JS (geolocation, animations)
+styles.py    CSS + browser JavaScript
 ```
 
 ## Run locally
@@ -92,19 +90,21 @@ pip install -r requirements.txt
 
 Create a `.env` file:
 
-```
+```env
 OPENAI_API_KEY=...
-FOURSQUARE_API_KEY=...    # Service API Key from foursquare.com/developers
+FOURSQUARE_API_KEY=...
 ```
+
+Then:
 
 ```bash
 python app.py
 ```
 
-Open http://127.0.0.1:7860, click **Let me peek nearby**, and ask for something.
+Open `http://127.0.0.1:7860`, click **Let me peek nearby**, and ask for something.
 
-## Limitations and next steps
+## Limitations
 
-- No ratings, reviews or opening hours (paid Foursquare fields). The agent picks the closest relevant matches and says what it couldn't check.
-- Fixed 5 km radius. Next step: let the agent widen it when results are sparse.
-- Location is sent to OpenAI and Foursquare to run the search and isn't stored by the app.
+* Ratings, reviews, and opening hours aren't currently included.
+* Search radius is fixed at 5 km.
+* Location is sent to OpenAI and Foursquare for the search and isn't stored by the app.
