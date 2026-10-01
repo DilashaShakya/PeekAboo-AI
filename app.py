@@ -1,6 +1,6 @@
 from openai import OpenAI
 from context import SYSTEM_PROMPT
-from tools import tools, handle_tool_calls, reset_checklist, get_checklist_markdown
+from tools import tools, handle_tool_calls, new_checklist, get_checklist_markdown
 from dotenv import load_dotenv
 from styles import (
     THEME, CSS, LOCATION_JS, PAGE_HEAD,
@@ -13,14 +13,18 @@ load_dotenv(override=True)
 
 MODEL_NAME = "gpt-5.4-mini"
 
+# Most of the time the agent needs 4-6 rounds of tools. This stops a confused
+# agent from looping forever (and spending money on every round).
+MAX_STEPS = 10
+
 openai = OpenAI()
 
 
-def progress_panel(done=False):
+def progress_panel(checklist, done=False):
     """A collapsible box in the chat that shows the agent's checklist."""
     return gr.ChatMessage(
         role="assistant",
-        content=get_checklist_markdown() or "Getting started...",
+        content=get_checklist_markdown(checklist) or "Getting started...",
         metadata={
             "title": "Done" if done else "Working on it...",
             "status": "done" if done else "pending",
@@ -49,7 +53,6 @@ def chat_message(message, history, location):
         )
 
     # Convert Gradio history into OpenAI messages
-    # (skip the "Working on it" panels - they're only for the user to see)
     history = [
         {
             "role": h["role"],
@@ -65,9 +68,9 @@ def chat_message(message, history, location):
         + [{"role": "user", "content": message}]
     )
 
-    # Each new message starts with an empty checklist
-    reset_checklist()
-    yield [progress_panel()]
+    # Each message gets its own empty checklist (not shared with other users)
+    checklist = new_checklist()
+    yield [progress_panel(checklist)]
 
     # Initial model call
     response = openai.chat.completions.create(
@@ -76,8 +79,10 @@ def chat_message(message, history, location):
         tools=tools
     )
 
-    # Agent loop
-    while response.choices[0].finish_reason == "tool_calls":
+    # Agent loop (stops after MAX_STEPS rounds of tools)
+    steps = 0
+    while response.choices[0].finish_reason == "tool_calls" and steps < MAX_STEPS:
+        steps += 1
 
         assistant_message = response.choices[0].message
         tool_calls = assistant_message.tool_calls
@@ -86,13 +91,13 @@ def chat_message(message, history, location):
         messages.append(assistant_message)
 
         # Run the requested tools
-        results = handle_tool_calls(tool_calls)
+        results = handle_tool_calls(tool_calls, checklist)
 
         # Give the tool results back to the model
         messages.extend(results)
 
         # Show the updated checklist in the chat while the agent keeps working
-        yield [progress_panel()]
+        yield [progress_panel(checklist)]
 
         # Let the model decide what to do next
         response = openai.chat.completions.create(
@@ -101,11 +106,21 @@ def chat_message(message, history, location):
             tools=tools
         )
 
+    # Hit the limit while the model still wanted tools?
+    # Ask it to answer with what it has found so far, with no more tool calls.
+    if response.choices[0].finish_reason == "tool_calls":
+        response = openai.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            tools=tools,
+            tool_choice="none"
+        )
+
     answer = response.choices[0].message.content
 
     # No checklist (e.g. "hi")? Just show the answer.
-    if get_checklist_markdown():
-        yield [progress_panel(done=True), gr.ChatMessage(role="assistant", content=answer)]
+    if get_checklist_markdown(checklist):
+        yield [progress_panel(checklist, done=True), gr.ChatMessage(role="assistant", content=answer)]
     else:
         yield answer
 
