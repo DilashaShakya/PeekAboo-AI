@@ -2,7 +2,11 @@ from openai import OpenAI
 from context import SYSTEM_PROMPT
 from tools import tools, handle_tool_calls
 from dotenv import load_dotenv
-from styles import CSS, LOCATION_JS
+from styles import (
+    THEME, CSS, LOCATION_JS, PAGE_HEAD,
+    TITLE_HTML, CHAT_HEAD_HTML, CHAT_PLACEHOLDER,
+    status_html,
+)
 import gradio as gr
 
 load_dotenv(override=True)
@@ -85,24 +89,23 @@ def chat_message(message, history, location):
 
 if __name__ == "__main__":
 
-    with gr.Blocks() as demo:
+    # fill_height=True lets the chat stretch to fill the whole browser window
+    with gr.Blocks(title="Find Me Something", fill_height=True) as demo:
 
-        gr.Markdown("# Find Me Something 🔎")
+        # Header: location status | mascot + title (centre) | location button
+        with gr.Row(elem_id="topbar"):
+            location_status = gr.HTML(status_html(False), elem_id="status_box")
+            gr.HTML(TITLE_HTML, elem_id="title_box")
+            location_button = gr.Button(
+                "Let me peek nearby",
+                elem_id="peek_btn",
+                scale=0
+            )
 
         # Hidden textbox that stores "latitude,longitude"
         location_box = gr.Textbox(
             elem_id="user_location",
             visible=False
-        )
-
-        # Location button
-        location_button = gr.Button(
-            "📍 Share my location",
-            size="sm"
-        )
-
-        location_status = gr.Markdown(
-            "Location not shared yet."
         )
 
         # Browser asks for location permission
@@ -114,21 +117,39 @@ if __name__ == "__main__":
 
         # Update status after location is received
         location_box.change(
-            lambda loc: (
-                "✅ Location shared."
-                if loc
-                else "Location not shared yet."
-            ),
+            lambda loc: status_html(bool(loc)),
             inputs=location_box,
             outputs=location_status
         )
 
-        # Chat interface
-        gr.ChatInterface(
-            fn=chat_message,
-            title="Find Me Something",
-            chatbot=gr.Chatbot(show_label=False),
-            additional_inputs=[location_box]
-        )
+        # Chat card: takes up all the remaining space
+        with gr.Column(elem_id="chat_card", scale=1):
+            gr.HTML(CHAT_HEAD_HTML)
 
-    demo.launch(css=CSS)
+            gr.ChatInterface(
+                fn=chat_message,
+                chatbot=gr.Chatbot(
+                    elem_id="chatbot",
+                    show_label=False,
+                    scale=1,
+                    placeholder=CHAT_PLACEHOLDER
+                ),
+                textbox=gr.Textbox(
+                    elem_id="chat_input",
+                    placeholder="I'm looking for...",
+                    show_label=False,
+                    container=False,
+                    submit_btn=True,
+                    stop_btn=True
+                ),
+                # None = "don't change the location box" when a chip is clicked
+                examples=[
+                    ["A cozy coffee shop", None],
+                    ["Something fun to do", None],
+                    ["Vegetarian food nearby", None]
+                ],
+                additional_inputs=[location_box],
+                fill_height=True
+            )
+
+    demo.launch(theme=THEME, css=CSS, head=PAGE_HEAD)
