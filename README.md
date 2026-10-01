@@ -1,7 +1,5 @@
 
 
-https://github.com/user-attachments/assets/9e7a53ca-bc78-40b7-8221-203801ed5daf
-
 # PeekAboo: Find Me Something
 
 **Your little local guide that finds the *right* places, not just nearby ones.** Tell Peekaboo what you're in the mood for, share your location with one click, and it comes back with a few spots that actually match, each one a tap away in Google Maps.
