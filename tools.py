@@ -3,6 +3,7 @@ from urllib.parse import urlencode
 import requests
 from dotenv import load_dotenv
 import json
+from rich.console import Console
 
 load_dotenv(override=True)
 
@@ -169,6 +170,95 @@ get_directions_link_json = {
 }
 
 
+
+#marking checklist
+
+checklist, completed = [], []
+
+def show(text):
+    try:
+        Console().print(text)
+    except Exception:
+        print(text)
+
+def reset_checklist():
+    # Called at the start of every new user message
+    checklist.clear()
+    completed.clear()
+
+def create_checklist(descriptions: list[str]) -> str:
+    reset_checklist()
+    checklist.extend(descriptions)
+    completed.extend([False]*len(descriptions))
+    return get_checklist_report()
+
+def get_checklist_markdown() -> str:
+    # checklist formatted for the chat window
+    lines = []
+    for index, item in enumerate(checklist):
+        if completed[index]:
+            lines.append(f"✓ ~~{item}~~")
+        else:
+            lines.append(f"○ {item}")
+    return "\n\n".join(lines)
+
+def get_checklist_report() -> str:
+    result = ""
+    for index, item in enumerate(checklist):
+        if completed[index]:
+             result += f"Checklist #{index + 1}: [green][strike]{item}[/strike][/green]\n"
+        else:
+            result += f"Checklist #{index + 1}: {item}\n"
+    show(result)
+    return result
+
+def mark_complete(index: int, completion_notes: str)-> str:
+    if 1<= index <= len(checklist):
+        completed[index-1] = True
+    else:
+        return "No checklist at this index"
+    show(completion_notes)
+    return get_checklist_report()
+
+create_checklist_json = {
+    "name": "create_checklist",
+    "description": "Add new checklist from a list of descriptions and return the full list",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "descriptions": {
+                'type': 'array',
+                'items': {'type': 'string'},
+                'title': 'Descriptions of checklist items'
+                }
+            },
+        "required": ["descriptions"],
+        "additionalProperties": False
+    }
+}
+
+mark_complete_json = {
+    "name": "mark_complete",
+    "description": "Mark complete the checklist item at the given position (starting from 1) and return the full list",
+    "parameters": {
+        'properties': {
+            'index': {
+                'description': 'The 1-based index of the checklist item to mark as complete',
+                'title': 'Index',
+                'type': 'integer'
+                },
+            'completion_notes': {
+                'description': 'Notes about how you completed the checklist item in rich console markup',
+                'title': 'Completion Notes',
+                'type': 'string'
+                }
+            },
+        'required': ['index', 'completion_notes'],
+        'type': 'object',
+        'additionalProperties': False
+    }
+}
+
 # Give the tools to OpenAI
 tools = [
     {
@@ -179,6 +269,15 @@ tools = [
         "type": "function",
         "function": get_directions_link_json,
     },
+    {
+        "type": "function",
+        "function": create_checklist_json
+    },
+    {
+        "type": "function",
+        "function": mark_complete_json
+    },
+
 ]
 
 
@@ -186,7 +285,11 @@ tools = [
 tool_map = {
     "find_nearby_places": find_nearby_places,
     "get_directions_link": get_directions_link,
+    "create_checklist": create_checklist,
+    "mark_complete": mark_complete,
+
 }
+
 
 def handle_tool_calls(tool_calls):
     results = []

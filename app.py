@@ -1,6 +1,6 @@
 from openai import OpenAI
 from context import SYSTEM_PROMPT
-from tools import tools, handle_tool_calls
+from tools import tools, handle_tool_calls, reset_checklist, get_checklist_markdown
 from dotenv import load_dotenv
 from styles import (
     THEME, CSS, LOCATION_JS, PAGE_HEAD,
@@ -14,6 +14,18 @@ load_dotenv(override=True)
 MODEL_NAME = "gpt-5.4-mini"
 
 openai = OpenAI()
+
+
+def progress_panel(done=False):
+    """A collapsible box in the chat that shows the agent's checklist."""
+    return gr.ChatMessage(
+        role="assistant",
+        content=get_checklist_markdown() or "Getting started...",
+        metadata={
+            "title": "Done" if done else "Working on it...",
+            "status": "done" if done else "pending",
+        },
+    )
 
 
 def chat_message(message, history, location):
@@ -37,12 +49,14 @@ def chat_message(message, history, location):
         )
 
     # Convert Gradio history into OpenAI messages
+    # (skip the "Working on it" panels - they're only for the user to see)
     history = [
         {
             "role": h["role"],
             "content": h["content"]
         }
         for h in history
+        if not (h.get("metadata") or {}).get("title")
     ]
 
     messages = (
@@ -50,6 +64,10 @@ def chat_message(message, history, location):
         + history
         + [{"role": "user", "content": message}]
     )
+
+    # Each new message starts with an empty checklist
+    reset_checklist()
+    yield [progress_panel()]
 
     # Initial model call
     response = openai.chat.completions.create(
@@ -73,6 +91,9 @@ def chat_message(message, history, location):
         # Give the tool results back to the model
         messages.extend(results)
 
+        # Show the updated checklist in the chat while the agent keeps working
+        yield [progress_panel()]
+
         # Let the model decide what to do next
         response = openai.chat.completions.create(
             model=MODEL_NAME,
@@ -80,7 +101,13 @@ def chat_message(message, history, location):
             tools=tools
         )
 
-    return response.choices[0].message.content
+    answer = response.choices[0].message.content
+
+    # No checklist (e.g. "hi")? Just show the answer.
+    if get_checklist_markdown():
+        yield [progress_panel(done=True), gr.ChatMessage(role="assistant", content=answer)]
+    else:
+        yield answer
 
 
 # -------------------------

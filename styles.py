@@ -8,7 +8,8 @@ THEME = gr.themes.Soft(
     primary_hue="neutral",
     secondary_hue="neutral",
     neutral_hue="neutral",
-    font=[gr.themes.GoogleFont("Comfortaa", weights=(400, 600, 700)), "ui-sans-serif", "system-ui", "sans-serif"],
+    # One font everywhere: Schibsted Grotesk (a sturdy news-style sans)
+    font=[gr.themes.GoogleFont("Schibsted Grotesk", weights=(400, 500, 600, 700, 800)), "ui-sans-serif", "system-ui", "sans-serif"],
 ).set(
     body_background_fill="#ffffff",
     body_text_color="#111111",
@@ -32,11 +33,11 @@ THEME = gr.themes.Soft(
 
 CSS = """
 :root {
-  /* Surfaces */
-  --page: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #ffffff;     /* bot message */
+  /* Neutrals */
+  --surface: #ffffff;       /* page, chat card, bot messages */
   --line: #e5e5e5;          /* borders and dividers */
+  --soft: #f5f5f5;          /* location button, chips, user messages */
+  --soft-line: #e0e0e0;
 
   /* Text */
   --ink: #111111;           /* main text      (18.9:1 on white) */
@@ -44,40 +45,28 @@ CSS = """
   --faint: #767676;         /* placeholder     (4.5:1 on white) */
 
   /* Actions: black buttons with white text */
-  --coral: #111111;
-  --coral-hover: #333333;
-  --coral-soft: #f2f2f2;
-  --coral-disabled: #d4d4d4;
-  --peach: var(--yellow-soft);  /* Peekaboo icon background */
-
-  /* Light grey controls: location button, suggestion chips, user message */
-  --green: #111111;
-  --green-soft: #f5f5f5;
-  --green-hover: #ebebeb;
-  --green-line: #e0e0e0;
-  --live: #111111;          /* "location shared" dot */
+  --action: #111111;
+  --action-hover: #333333;
+  --action-disabled: #d4d4d4;
 
   /* Highlight colour: used sparingly so it stands out */
   --yellow: #ffd23f;        /* black text on it = 14:1 */
   --yellow-hover: #f5c518;
   --yellow-soft: #fff6d1;
 
-  --shadow: none;
+  --heading: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
   --focus: 0 0 0 3px rgba(0, 0, 0, 0.2);
 }
 
 ::selection { background: var(--yellow); color: var(--ink); }
 
-/* Page width and background */
-body, .gradio-container { background: var(--page) !important; }
-.gradio-container .app { max-width: 1172px !important; margin: 0 auto !important; padding: 12px 16px 24px !important; }
+/* Page width and background. The page fills the window; the chat card stretches to fill what's left */
+body, .gradio-container { background: var(--surface) !important; }
+.gradio-container .app { max-width: 1172px !important; height: 100vh; margin: 0 auto !important; padding: 12px 16px 24px !important; }
 footer { display: none !important; }
 
 /* Hidden box that stores "lat,lon" */
 #user_location { display: none !important; }
-
-/* Page fills the window; the chat card stretches to fill what's left */
-.gradio-container .app { height: 100vh; }
 
 /* ---------- Header: status | title | button ---------- */
 #topbar {
@@ -94,7 +83,7 @@ footer { display: none !important; }
 .title-block .mascot { width: 46px; }
 .title-block .eyebrow { margin: 0 0 2px; }
 .title-block h1 {
-  font-size: 26px; line-height: 1.1; font-weight: 700; letter-spacing: -0.03em;
+  font-family: var(--heading); font-size: 28px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em;
   color: var(--ink); margin: 0;
 }
 .title-block h1 span {
@@ -104,12 +93,19 @@ footer { display: none !important; }
 
 #peek_btn {
   flex: 0 0 auto !important; min-width: 0 !important; width: auto !important;
-  background: var(--green-soft) !important; color: var(--green) !important;
-  border: 1px solid var(--green-line) !important; border-radius: 10px !important;
+  background: var(--soft) !important; color: var(--ink) !important;
+  border: 1px solid var(--soft-line) !important; border-radius: 10px !important;
   font-weight: 600 !important; font-size: 13px !important; padding: 8px 16px !important;
   box-shadow: none !important;
 }
 #peek_btn:hover { background: var(--yellow-soft) !important; border-color: var(--yellow-hover) !important; }
+
+/* While the browser is finding the location */
+#peek_btn.locating {
+  background: var(--yellow-soft) !important; border-color: var(--ink) !important;
+  cursor: progress !important; animation: breathe 1.2s ease-in-out infinite;
+}
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.97); } }
 #peek_btn::before {
   content: ""; width: 16px; height: 16px; margin-right: 8px; background: currentColor;
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z'/><circle cx='12' cy='10' r='2.5'/></svg>") center / contain no-repeat;
@@ -118,7 +114,7 @@ footer { display: none !important; }
 
 .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: 0 0 auto; }
-.status.on { color: var(--green); }
+.status.on { color: var(--ink); }
 .status.on .dot { background: var(--yellow); box-shadow: 0 0 0 1.5px var(--ink); }
 
 .mascot { animation: bob 4s ease-in-out infinite; }
@@ -128,7 +124,6 @@ footer { display: none !important; }
 /* ---------- Chat card ---------- */
 #chat_card {
   background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
-  box-shadow: var(--shadow);
   overflow: hidden; gap: 0 !important; padding: 0 !important;
   flex: 1 1 0 !important; min-height: 0;
 }
@@ -140,10 +135,10 @@ footer { display: none !important; }
 }
 .agent { display: flex; align-items: center; gap: 10px; }
 .agent-icon {
-  width: 30px; height: 30px; border-radius: 8px; background: var(--peach);
-  display: grid; place-items: center; color: var(--coral);
+  width: 30px; height: 30px; border-radius: 8px; background: var(--yellow-soft);
+  display: grid; place-items: center; color: var(--action);
 }
-.agent-name { font-weight: 600; font-size: 14px; color: var(--ink); line-height: 1.2; }
+.agent-name { font-family: var(--heading); font-weight: 700; font-size: 15px; color: var(--ink); line-height: 1.2; }
 .agent-tag { font-size: 11px; color: var(--muted); }
 .ready { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .ready::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 0 1.5px var(--ink); }
@@ -151,12 +146,12 @@ footer { display: none !important; }
 /* Chat messages area */
 #chatbot { flex: 1 1 0 !important; min-height: 0 !important; height: auto !important; border: none !important; border-radius: 0 !important; background: var(--surface) !important; }
 #chatbot .bubble-wrap { background: var(--surface) !important; }
-#chatbot .message.user { background: var(--green-soft) !important; border-color: var(--green-line) !important; }
-#chatbot .message.bot { background: var(--surface-2) !important; border-color: var(--line) !important; }
+#chatbot .message.user { background: var(--soft) !important; border-color: var(--soft-line) !important; }
+#chatbot .message.bot { background: var(--surface) !important; border-color: var(--line) !important; }
 #chatbot .prose { opacity: 1 !important; }  /* Gradio fades message text to 80% by default */
-#chatbot a { color: var(--coral); font-weight: 600; }
+#chatbot a { color: var(--action); font-weight: 600; }
 
-/* Google Maps links become a coral pill with a filled pin */
+/* Google Maps links become a yellow pill with a filled pin */
 #chatbot a[href*="google.com/maps"] {
   display: inline-flex; align-items: center; gap: 6px; vertical-align: middle;
   margin: 2px 0; padding: 6px 14px 6px 10px; border-radius: 999px;
@@ -186,6 +181,10 @@ footer { display: none !important; }
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' fill-rule='evenodd' d='M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5z'/></svg>") center / contain no-repeat;
           mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' fill-rule='evenodd' d='M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 4.5a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5z'/></svg>") center / contain no-repeat;
 }
+/* Black version, used while we wait for the user's location */
+.pin-pop.dark { background: var(--ink); border-color: #ffffff; }
+.pin-pop.dark::after { background: #ffffff; }
+
 @keyframes pinpop {
   0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
   25%  { opacity: 1; }
@@ -196,7 +195,7 @@ footer { display: none !important; }
 /* Empty-state text */
 .ph { text-align: center; }
 .ph .eyebrow { margin-bottom: 10px; }
-.ph-title { font-size: 20px; color: var(--ink); margin: 0; font-weight: 400; }
+.ph-title { font-family: var(--heading); font-size: 24px; color: var(--ink); margin: 0; font-weight: 700; letter-spacing: -0.02em; }
 
 /* Example chips */
 #chatbot .placeholder-content { justify-content: center !important; }
@@ -208,8 +207,8 @@ footer { display: none !important; }
 #chatbot .example {
   width: auto !important; flex: 0 0 auto !important;
   padding: 8px 14px !important; border-radius: 999px !important; min-height: 0 !important;
-  background: var(--green-soft) !important; border: 1px solid var(--green-line) !important;
-  color: var(--green) !important; font-size: 12px !important;
+  background: var(--soft) !important; border: 1px solid var(--soft-line) !important;
+  color: var(--ink) !important; font-size: 12px !important;
 }
 #chatbot .example:hover { background: var(--yellow-soft) !important; border-color: var(--yellow-hover) !important; transform: none !important; }
 
@@ -220,19 +219,19 @@ footer { display: none !important; }
 #chat_input textarea::placeholder { color: var(--faint); }
 #chat_input .submit-button {
   width: 34px !important; height: 34px !important; min-width: 34px !important; border-radius: 50% !important;
-  background: var(--coral) !important; color: #fff !important; border: none !important;
+  background: var(--action) !important; color: #fff !important; border: none !important;
 }
-#chat_input .submit-button:hover:not(:disabled) { background: var(--coral-hover) !important; }
-#chat_input .submit-button:disabled { background: var(--coral-disabled) !important; }
+#chat_input .submit-button:hover:not(:disabled) { background: var(--action-hover) !important; }
+#chat_input .submit-button:disabled { background: var(--action-disabled) !important; }
 
-/* Keyboard focus: a clear terracotta ring on everything you can tab to */
+/* Keyboard focus: a clear ring on everything you can tab to */
 #peek_btn:focus-visible, #chatbot .example:focus-visible, #chat_input .submit-button:focus-visible,
 #chatbot a:focus-visible { outline: none !important; box-shadow: var(--focus) !important; }
 #chat_input:focus-within { background: #fafafa !important; }
 
 /* Gradio's small copy/share/delete icons: quiet until hovered */
 #chatbot .icon-button, #chatbot .icon-button-wrapper button { color: var(--faint) !important; }
-#chatbot .icon-button:hover, #chatbot .icon-button-wrapper button:hover { color: var(--coral) !important; }
+#chatbot .icon-button:hover, #chatbot .icon-button-wrapper button:hover { color: var(--action) !important; }
 
 /* ---------- Phone width: title on top, status + button underneath ---------- */
 @media (max-width: 720px) {
@@ -368,13 +367,48 @@ LOCATION_JS = """
     alert("Your browser doesn't support location sharing.");
     return resolve("");
   }
+
+  const button = document.getElementById("peek_btn");
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Pop three black pin bubbles out of the bottom of the button
+  const popBubbles = () => {
+    if (!button || calm) return;
+    const box = button.getBoundingClientRect();
+    const bubbles = [[-30, 40, 0], [0, 54, 90], [30, 40, 180]];  // [x, y, delay]
+
+    bubbles.forEach(([dx, dy, delay]) => {
+      const bubble = document.createElement("span");
+      bubble.className = "pin-pop dark";
+      bubble.style.left = (box.left + box.width / 2 - 12) + "px";
+      bubble.style.top = (box.top + box.height / 2 - 12) + "px";
+      bubble.style.setProperty("--dx", dx + "px");
+      bubble.style.setProperty("--dy", dy + "px");
+      bubble.style.animationDelay = delay + "ms";
+      document.body.appendChild(bubble);
+      setTimeout(() => bubble.remove(), 1000 + delay);
+    });
+  };
+
+  // Keep popping until the browser gives us the location (or fails)
+  popBubbles();
+  const loop = setInterval(popBubbles, 900);
+  if (button) button.classList.add("locating");
+
+  const finish = (value) => {
+    clearInterval(loop);
+    if (button) button.classList.remove("locating");
+    resolve(value);
+  };
+
   navigator.geolocation.getCurrentPosition(
-    (pos) => resolve(`${pos.coords.latitude},${pos.coords.longitude}`),
+    (pos) => finish(`${pos.coords.latitude},${pos.coords.longitude}`),
     (err) => {
+      finish("");
       alert("Couldn't get your location: " + err.message +
             "\\nIf you blocked it before, click the icon left of the address bar and allow Location.");
-      resolve("");
-    }
+    },
+    { timeout: 20000 }  // give up after 20 seconds so the bubbles don't run forever
   );
 })
 """
