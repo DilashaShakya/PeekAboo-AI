@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/9e7a53ca-bc78-40b7-8221-203801ed5daf
+
 # PeekAboo: Find Me Something
 
 **Your little local guide that finds the *right* places, not just nearby ones.** Tell Peekaboo what you're in the mood for, share your location with one click, and it comes back with a few spots that actually match, each one a tap away in Google Maps.
@@ -18,7 +22,11 @@ Peekaboo:  ✓ Search for vegetarian restaurants nearby
 
 ## Demo
 
-<!-- Drag and drop your demo .mp4 here when editing on GitHub -->
+
+
+https://github.com/user-attachments/assets/49fd895b-d983-4650-a06b-ab1e09e0c347
+
+
 
 ## What it can do
 
