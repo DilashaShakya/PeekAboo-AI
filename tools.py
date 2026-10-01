@@ -173,7 +173,10 @@ get_directions_link_json = {
 
 #marking checklist
 
-checklist, completed = [], []
+# Each request gets its own checklist (created in app.py), so two people using
+# the app at the same time never see each other's plans.
+def new_checklist():
+    return {"items": [], "completed": []}
 
 def show(text):
     try:
@@ -181,44 +184,38 @@ def show(text):
     except Exception:
         print(text)
 
-def reset_checklist():
-    # Called at the start of every new user message
-    checklist.clear()
-    completed.clear()
+def create_checklist(checklist, descriptions: list[str]) -> str:
+    checklist["items"] = list(descriptions)
+    checklist["completed"] = [False] * len(descriptions)
+    return get_checklist_report(checklist)
 
-def create_checklist(descriptions: list[str]) -> str:
-    reset_checklist()
-    checklist.extend(descriptions)
-    completed.extend([False]*len(descriptions))
-    return get_checklist_report()
-
-def get_checklist_markdown() -> str:
+def get_checklist_markdown(checklist) -> str:
     # checklist formatted for the chat window
     lines = []
-    for index, item in enumerate(checklist):
-        if completed[index]:
+    for index, item in enumerate(checklist["items"]):
+        if checklist["completed"][index]:
             lines.append(f"✓ ~~{item}~~")
         else:
             lines.append(f"○ {item}")
     return "\n\n".join(lines)
 
-def get_checklist_report() -> str:
+def get_checklist_report(checklist) -> str:
     result = ""
-    for index, item in enumerate(checklist):
-        if completed[index]:
+    for index, item in enumerate(checklist["items"]):
+        if checklist["completed"][index]:
              result += f"Checklist #{index + 1}: [green][strike]{item}[/strike][/green]\n"
         else:
             result += f"Checklist #{index + 1}: {item}\n"
     show(result)
     return result
 
-def mark_complete(index: int, completion_notes: str)-> str:
-    if 1<= index <= len(checklist):
-        completed[index-1] = True
+def mark_complete(checklist, index: int, completion_notes: str)-> str:
+    if 1 <= index <= len(checklist["items"]):
+        checklist["completed"][index-1] = True
     else:
         return "No checklist at this index"
     show(completion_notes)
-    return get_checklist_report()
+    return get_checklist_report(checklist)
 
 create_checklist_json = {
     "name": "create_checklist",
@@ -291,7 +288,10 @@ tool_map = {
 }
 
 
-def handle_tool_calls(tool_calls):
+# These tools also need the current request's checklist
+CHECKLIST_TOOLS = ["create_checklist", "mark_complete"]
+
+def handle_tool_calls(tool_calls, checklist):
     results = []
 
     for tool_call in tool_calls:
@@ -303,7 +303,12 @@ def handle_tool_calls(tool_calls):
 
         tool = tool_map.get(tool_name)
 
-        result = tool(**arguments) if tool else "Unknown tool: " + tool_name
+        if not tool:
+            result = "Unknown tool: " + tool_name
+        elif tool_name in CHECKLIST_TOOLS:
+            result = tool(checklist, **arguments)
+        else:
+            result = tool(**arguments)
 
         print("Tool result:", result, flush=True)
 
